@@ -2,7 +2,9 @@ from BeatifulXml import BeautifulXml
 
 
 if __name__=="__main__":
-
-    soup=BeautifulXml('data')
-
-    print(soup.get_version())
+    file = open('skroutzdata-all.xml','r',encoding='utf-8')
+    soup=BeautifulXml(file,'product')
+    items=soup.fetchDict('name')
+    print(items)
+    # print(soup.get_me())
+    # print(soup.get_version())
