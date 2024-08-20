@@ -1,102 +1,112 @@
-from os import stat
 from bs4 import BeautifulSoup
 import platform
-from lib.BXLF import get_atribute_text
 import json
+from lib.BXLF import get_atribute_text
 
-# @Exception
-class Parsing_Failed(Exception):
-    msg = 'Failed to parse xml'
-    def __init__(self):
-        super().__init__(self.msg)
-        return
+# Custom Exceptions
+class ParsingFailed(Exception):
+    def __init__(self, message="Failed to parse XML"):
+        super().__init__(message)
 
-# @Exception
-class Root_not_found(Exception):
-    msg = 'Failed to find root'
-    def __init__(self):
-        super().__init__(self.msg)
-        return
-# @Exception
+class RootNotFound(Exception):
+    def __init__(self, message="Failed to find root"):
+        super().__init__(message)
+
 class Bs4NotFound(Exception):
-    msg = 'Python cant find bs4 in your modules!\n Considering running pip install bs4'
-    def __init__(self):
-        super().__init__(self.msg)
-        return
+    def __init__(self, message="BeautifulSoup (bs4) not found. Consider running 'pip install bs4'"):
+        super().__init__(message)
 
 class ParserNotFound(Exception):
-    msg = 'Python cant find bs4 in your modules!\n Considering running pip install bs4'
-    def __init__(self):
-        super().__init__(self.msg)
-        return
+    def __init__(self, message="Specified parser not found. Consider using 'lxml' or 'xml'"):
+        super().__init__(message)
 
 
-VERSION = "0.0"
+VERSION = "0.0.1"
 
 class BeautifulXml:
-    DOCUMENT = ''
-    INDEX_CHECKUP = False
-    SOUP_CONST_OBJECT = '' 
-    PARSER = 'xml' if platform.system() == 'Windows' else 'lxml' # The default parser , can be changed using the parser changer
-    INDEX_ROOT = '' # the root
-    ROOT_NAME=''
-    ERROR_ARRAY=[]
-    r_dict=[]
+    def __init__(self, xml_file: str, root: str, parser: str = None):
+        """
+        Initialize the BeautifulXml class.
 
+        :param xml_file: XML file content as string.
+        :param root: Root element to find in the XML.
+        :param parser: Optional parser to use. Defaults to 'xml' on Windows and 'lxml' otherwise.
+        """
+        self.DOCUMENT = xml_file
+        self.ROOT_NAME = root
+        self.ERROR_ARRAY = []
+        self.r_dict = []
+        
+        # Determine the parser to use
+        self.PARSER = parser if parser else ('xml' if platform.system() == 'Windows' else 'lxml')
+        
+        # Validate parser choice
+        if self.PARSER not in ['lxml', 'lxml-xml', 'xml']:
+            raise ParserNotFound()
 
+        try:
+            self.SOUP_CONST_OBJECT = BeautifulSoup(xml_file, self.PARSER)
+        except ModuleNotFoundError:
+            raise Bs4NotFound()
+        except Exception as e:
+            raise ParsingFailed(str(e))
+
+        self.INDEX_ROOT = self.SOUP_CONST_OBJECT.find(root)
+        if not self.INDEX_ROOT:
+            raise RootNotFound(f"Root element '{root}' not found in the XML.")
+        
+        self.INDEX_CHECKUP = True
 
     @staticmethod
-    def get_version()->str:
-        # version checkup function
-        print(f"BeautifulXml is currently on:{VERSION}")
+    def get_version() -> str:
+        """
+        Returns the current version of BeautifulXml.
+        """
         return VERSION
 
-    @staticmethod
-    def update()->str:
-        # check for updates
-        pass
+    def set_parser(self, parser: str) -> None:
+        """
+        Change the parser used for parsing XML.
 
-    def setup_parser(self,parser)-> None:
-        if parser != 'lxml' or parser != 'lxml-xml' or parser != 'xml':
+        :param parser: Parser name to be used. Must be one of 'lxml', 'lxml-xml', or 'xml'.
+        """
+        if parser not in ['lxml', 'lxml-xml', 'xml']:
             raise ParserNotFound()
-        else:   
-            self.PARSER = parser
+        self.PARSER = parser
 
-    def __init__(self, xml_file,root)->object:
+    def get_root(self) -> BeautifulSoup:
         """
-        This is the main constructor class returning an object
-        """
-        # Parse the xml document find the root element
+        Returns the root element found in the XML.
 
-        self.ROOT_NAME=root
-        try:
-            self.SOUP_CONST_OBJECT = BeautifulSoup(xml_file,self.PARSER)
-        except ModuleNotFoundError:
-            print('BS4 Not found')
-        except:
-            raise Parsing_Failed
-        if self.SOUP_CONST_OBJECT.find(root):
-            self.INDEX_CHECKUP = True
-            self.INDEX_ROOT=self.SOUP_CONST_OBJECT.find(root)
-            return __class__ == BeautifulXml 
-        else:
-            raise Parsing_Failed
-    
-    def get_me(self)-> BeautifulSoup:
+        :return: BeautifulSoup object representing the root element.
+        """
         return self.INDEX_ROOT
 
+    def to_json(self, data: dict) -> str:
+        """
+        Converts the given dictionary to a JSON string.
 
-    def json_(self, data) -> json.dump():
-        pass
+        :param data: Data to be converted to JSON.
+        :return: JSON string representation of the data.
+        """
+        return json.dumps(data, ensure_ascii=False, indent=4)
 
-    def fetch_errors() -> str:
+    def fetch_errors(self) -> str:
+        """
+        Fetches and returns the errors encountered during parsing.
 
-        pass
+        :return: String representation of errors.
+        """
+        return "\n".join(self.ERROR_ARRAY)
 
-    def fetchDict(self,*data) -> dict:
-        print(data[1])
+    def fetch_dict(self, *data) -> dict:
+        """
+        Fetches a dictionary representation of the XML elements matching ROOT_NAME.
+
+        :param data: Additional data or parameters.
+        :return: Dictionary with parsed XML data.
+        """
         for entity in self.SOUP_CONST_OBJECT.find_all(self.ROOT_NAME):
-            dato_parsed , self.ERROR_ARRAY=get_atribute_text(entity,dato,self.ERROR_ARRAY)
-            self.r_dict.append(dict(dato = dato_parsed))
+            parsed_data, self.ERROR_ARRAY = get_atribute_text(entity, data, self.ERROR_ARRAY)
+            self.r_dict.append({self.ROOT_NAME: parsed_data})
         return self.r_dict
-        
